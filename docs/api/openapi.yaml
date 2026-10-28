@@ -1,0 +1,212 @@
+openapi: 3.0.3
+info:
+  title: API Centro de Belleza María Salomé
+  version: 0.1.0
+  description: |
+    Contrato correspondiente a HU-01 (Registrar cuenta de cliente).
+    Este documento es incremental: los demás endpoints se incorporarán en sus
+    respectivas historias. Los campos adicionales enviados al registro se
+    ignoran; en particular, el rol siempre lo asigna el servidor.
+servers:
+  - url: http://localhost:3000
+    description: Backend local (Express)
+tags:
+  - name: Autenticación
+    description: Registro y acceso de usuarios.
+paths:
+  /api/health:
+    get:
+      tags: [Autenticación]
+      summary: Verificar que la API responde
+      responses:
+        '200':
+          description: API disponible
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /api/auth/register:
+    post:
+      tags: [Autenticación]
+      summary: Registrar una cuenta de cliente
+      description: |
+        Crea una cuenta con rol CLIENTE. No inicia sesión automáticamente
+        (eso corresponde a HU-02). Aplica un límite de intentos por IP.
+      operationId: registerClient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              registroValido:
+                summary: Datos válidos
+                value:
+                  nombre: María
+                  apellido: Salomé
+                  telefono: '+57 300 123 4567'
+                  correo: maria@example.com
+                  contrasena: Belleza2026
+      responses:
+        '201':
+          description: Cuenta creada con rol CLIENTE
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterSuccess'
+              example:
+                data:
+                  id: 1
+                  nombre: María
+                  apellido: Salomé
+                  correo: maria@example.com
+                  telefono: '+57 300 123 4567'
+                  rol: CLIENTE
+                  creadoEn: '2026-10-28T12:00:00.000Z'
+                message: Cuenta creada correctamente.
+        '400':
+          description: Datos inválidos o campos obligatorios ausentes (CA-02)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Revisa los datos del formulario.
+                  details:
+                    - field: correo
+                      message: El correo electrónico no tiene un formato válido.
+        '409':
+          description: El correo ya está registrado (CA-03)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: EMAIL_ALREADY_EXISTS
+                  message: Ya existe una cuenta registrada con este correo electrónico.
+        '429':
+          description: Demasiados intentos de registro
+          headers:
+            Retry-After:
+              description: Segundos sugeridos antes de reintentar.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: RATE_LIMIT_EXCEEDED
+                  message: Demasiados intentos de registro. Espera unos minutos e intenta de nuevo.
+        '500':
+          description: Error inesperado del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: INTERNAL_ERROR
+                  message: Ocurrió un error inesperado. Intenta nuevamente.
+components:
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [nombre, apellido, telefono, correo, contrasena]
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 60
+          example: María
+        apellido:
+          type: string
+          minLength: 2
+          maxLength: 60
+          example: Salomé
+        telefono:
+          type: string
+          minLength: 7
+          maxLength: 20
+          description: Entre 7 y 15 dígitos; admite +, espacios, guiones y paréntesis.
+          example: '+57 300 123 4567'
+        correo:
+          type: string
+          format: email
+          maxLength: 120
+          example: maria@example.com
+        contrasena:
+          type: string
+          minLength: 8
+          maxLength: 72
+          description: Debe incluir al menos una letra y un número.
+          example: Belleza2026
+    PublicUser:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          example: María
+        apellido:
+          type: string
+          example: Salomé
+        correo:
+          type: string
+          format: email
+          example: maria@example.com
+        telefono:
+          type: string
+          example: '+57 300 123 4567'
+        rol:
+          type: string
+          enum: [ADMIN, EMPLEADO, CLIENTE]
+          example: CLIENTE
+        creadoEn:
+          type: string
+          format: date-time
+          example: '2026-10-28T12:00:00.000Z'
+    RegisterSuccess:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/PublicUser'
+        message:
+          type: string
+          example: Cuenta creada correctamente.
+    ErrorDetail:
+      type: object
+      properties:
+        field:
+          type: string
+          example: correo
+        message:
+          type: string
+          example: El correo electrónico no tiene un formato válido.
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Revisa los datos del formulario.
+            details:
+              type: array
+              items:
+                $ref: '#/components/schemas/ErrorDetail'

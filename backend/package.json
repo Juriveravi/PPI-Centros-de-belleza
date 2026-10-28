@@ -4,14 +4,19 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "set \"NODE_PATH=./node_modules\" && nodemon index.js",
-    "start": "set \"NODE_PATH=./node_modules\" && node index.js"
+    "dev": "nodemon index.js",
+    "start": "node index.js",
+    "test": "node --test \"tests/**/*.test.js\"",
+    "db:migrate": "sequelize-cli db:migrate",
+    "db:migrate:undo": "sequelize-cli db:migrate:undo",
+    "db:seed": "sequelize-cli db:seed:all"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "pg": "^8.23.0",
